@@ -1,9 +1,5 @@
-import MapView from "@/components/map/page";
+import MapWorkspace from "@/components/MapWorkspace";
 
 export default function Home() {
-  return (
-    <main className="h-screen w-full">
-      <MapView />
-    </main>
-  );
+  return <MapWorkspace />;
 }
