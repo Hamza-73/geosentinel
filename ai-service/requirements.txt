@@ -1,0 +1,17 @@
+# Core (tiles, geometry, DB)
+requests==2.32.5
+pillow==11.3.0
+numpy==2.2.6
+shapely==2.1.2
+psycopg[binary]==3.2.10
+python-dotenv==1.2.1
+
+# Inference: YOLO (OBB for detection, -seg for segmentation) + SAHI slicing.
+# ultralytics 8.4+ is needed for YOLO26 models.
+ultralytics>=8.4.0
+sahi>=0.11.36
+opencv-python-headless>=4.10
+
+# PyTorch is NOT listed here on purpose: install the build for your
+# hardware first (see README). CPU-only:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu

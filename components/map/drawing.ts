@@ -1,5 +1,5 @@
 import type { TerraDraw } from "terra-draw";
-import type { Point, Polygon } from "geojson";
+import type { FeatureCollection, Point, Polygon } from "geojson";
 
 /**
  * "select" is the idle mode: clicking a feature selects it for editing.
@@ -25,20 +25,36 @@ export type AnalysisInput = {
   geometry: Point | Polygon;
 };
 
+/**
+ * "starting" is client-only (POST in flight); the rest mirror the `jobs`
+ * table status.
+ */
 export type JobStatus =
-  | "not-connected"
+  | "starting"
   | "queued"
   | "running"
   | "done"
-  | "error";
+  | "error"
+  | "cancelled";
 
-/** A started analysis (background job once the AI service exists). */
+export const isActiveStatus = (s: JobStatus) =>
+  s === "starting" || s === "queued" || s === "running";
+
+/** A started analysis job, kept in sync with GET /api/jobs/:id. */
 export type AnalysisJob = {
   id: string;
   kind: AnalysisKind;
   /** Snapshot of the input at the moment the job was started. */
   geometry: Point | Polygon;
   status: JobStatus;
+  /** 0..1 */
+  progress: number;
+  message?: string | null;
+  error?: string | null;
+  /** label → count, when done */
+  stats?: Record<string, number> | null;
+  /** Result GeoJSON, when done */
+  result?: FeatureCollection | null;
   createdAt: number;
 };
 

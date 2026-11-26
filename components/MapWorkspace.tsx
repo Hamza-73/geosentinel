@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Point, Polygon } from "geojson";
+import { type MapMouseEvent, Popup } from "maplibre-gl";
 import MapView, { type MapReady } from "@/components/map/page";
+import {
+  addJobResult,
+  fillLayerId,
+  removeJobResult,
+} from "@/components/map/resultLayers";
 import DrawHint from "@/components/map/DrawHint";
 import Sidebar, { type SidebarView } from "@/components/Sidebar/page";
 import {
@@ -145,24 +151,161 @@ export default function MapWorkspace() {
     });
   };
 
-  const handleStart = (kind: AnalysisKind) => {
+  const updateJob = (id: string, patch: Partial<AnalysisJob>) =>
+    setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
+
+  const handleStart = async (kind: AnalysisKind) => {
     const input = inputs[kind];
-    if (!input) return;
+    if (!input || input.geometry.type !== "Polygon") return;
+
+    // Show the card immediately; swap in the server id once created.
+    const tempId = `pending-${crypto.randomUUID()}`;
     setJobs((prev) => [
       {
-        id: crypto.randomUUID(),
+        id: tempId,
         kind,
         geometry: input.geometry,
-        // TODO: POST /api/detect or /api/segment to start the background
-        // job, then poll /api/jobs/:id and update status / progress.
-        status: "not-connected",
+        status: "starting",
+        progress: 0,
+        message: "Submitting…",
         createdAt: Date.now(),
       },
       ...prev,
     ]);
+
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, polygon: input.geometry }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        updateJob(tempId, { status: "error", error: body.error ?? `HTTP ${res.status}` });
+        return;
+      }
+      updateJob(tempId, {
+        id: body.id,
+        status: body.status,
+        progress: body.progress ?? 0,
+        message: "Waiting for the AI worker…",
+      });
+    } catch {
+      updateJob(tempId, { status: "error", error: "Network error: could not reach the server." });
+    }
+  };
+
+  // Poll active jobs until they finish.
+  const activeIds = jobs
+    .filter((j) => (j.status === "queued" || j.status === "running"))
+    .map((j) => j.id)
+    .join(",");
+
+  useEffect(() => {
+    if (!activeIds) return;
+    const ids = activeIds.split(",");
+    let stopped = false;
+
+    const poll = async () => {
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const res = await fetch(`/api/jobs/${id}`, { cache: "no-store" });
+            if (!res.ok || stopped) return;
+            const job = await res.json();
+            updateJob(id, {
+              status: job.status,
+              progress: job.progress,
+              message:
+                job.status === "queued" ? "Waiting for the AI worker…" : job.message,
+              error: job.error,
+              stats: job.stats,
+              result: job.result,
+            });
+          } catch {
+            // Transient network error: try again on the next tick.
+          }
+        }),
+      );
+    };
+
+    poll();
+    const timer = setInterval(poll, 1500);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [activeIds]);
+
+  // Draw finished results on the map; remove layers of removed jobs.
+  const map = ready?.map;
+  const drawnResults = useRef(new Set<string>());
+  useEffect(() => {
+    if (!map) return;
+    const wanted = new Set<string>();
+    for (const job of jobs) {
+      if (job.status === "done" && job.result) {
+        wanted.add(job.id);
+        addJobResult(map, job.id, job.kind, job.result);
+      }
+    }
+    for (const id of drawnResults.current) {
+      if (!wanted.has(id)) removeJobResult(map, id);
+    }
+    drawnResults.current = wanted;
+  }, [map, jobs]);
+
+  // Click a result to see its label and confidence.
+  const resultLayerKey = jobs
+    .filter((j) => j.status === "done" && j.result)
+    .map((j) => fillLayerId(j.id))
+    .join(",");
+  useEffect(() => {
+    if (!map || !resultLayerKey) return;
+    const layers = resultLayerKey.split(",");
+    const popup = new Popup({ closeButton: false, offset: 8 });
+    const onClick = (e: MapMouseEvent) => {
+      if (tool !== "select") return;
+      const f = map
+        .queryRenderedFeatures(e.point, { layers: layers.filter((l) => map.getLayer(l)) })
+        .at(0);
+      if (!f) {
+        popup.remove();
+        return;
+      }
+      const label = String(f.properties?.label ?? "object");
+      const conf = Number(f.properties?.confidence ?? 0);
+      popup
+        .setLngLat(e.lngLat)
+        .setText(`${label} · ${(conf * 100).toFixed(0)}%`)
+        .addTo(map);
+    };
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+      popup.remove();
+    };
+  }, [map, resultLayerKey, tool]);
+
+  const handleCancelJob = async (id: string) => {
+    updateJob(id, { message: "Cancelling…" });
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+      const body = await res.json();
+      // 409 = it finished first; the next poll / current state shows that.
+      if (res.ok) updateJob(id, { status: "cancelled", message: null });
+      else if (body.status) updateJob(id, { status: body.status });
+    } catch {
+      updateJob(id, { message: "Could not cancel (network error)." });
+    }
   };
 
   const handleRemoveJob = (id: string) => {
+    const job = jobs.find((j) => j.id === id);
+    if (job && (job.status === "queued" || job.status === "running")) {
+      // Stop the worker too; fire-and-forget.
+      fetch(`/api/jobs/${id}`, { method: "DELETE" }).catch(() => {});
+    }
     setJobs((prev) => prev.filter((j) => j.id !== id));
   };
 
@@ -185,6 +328,7 @@ export default function MapWorkspace() {
         onToolChange={changeTool}
         onRemoveInput={handleRemoveInput}
         onStart={handleStart}
+        onCancelJob={handleCancelJob}
         onRemoveJob={handleRemoveJob}
         onClear={handleClear}
       />

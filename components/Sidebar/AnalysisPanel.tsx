@@ -7,6 +7,7 @@ import {
   type AnalysisKind,
   formatArea,
   formatLngLat,
+  isActiveStatus,
   type JobStatus,
   polygonArea,
 } from "@/components/map/drawing";
@@ -23,6 +24,7 @@ type AnalysisPanelProps = {
   onCancelMark: () => void;
   onRemoveInput: () => void;
   onStart: () => void;
+  onCancelJob: (id: string) => void;
   onRemoveJob: (id: string) => void;
 };
 
@@ -59,8 +61,12 @@ const config: Record<
 };
 
 const statusStyles: Record<JobStatus, { label: string; className: string }> = {
-  "not-connected": {
-    label: "Not connected",
+  starting: {
+    label: "Starting",
+    className: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+  },
+  cancelled: {
+    label: "Cancelled",
     className: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
   },
   queued: {
@@ -113,6 +119,7 @@ export default function AnalysisPanel({
   onCancelMark,
   onRemoveInput,
   onStart,
+  onCancelJob,
   onRemoveJob,
 }: AnalysisPanelProps) {
   const c = config[kind];
@@ -202,48 +209,121 @@ export default function AnalysisPanel({
         <section className="flex flex-col gap-2">
           <SectionTitle>Jobs</SectionTitle>
           <ul className="flex flex-col gap-2">
-            {jobs.map((job) => {
-              const status = statusStyles[job.status];
-              return (
-                <li
-                  key={job.id}
-                  className="flex items-start gap-2 rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-xs ${status.className}`}
-                      >
-                        {status.label}
-                      </span>
-                      <time className="text-xs text-zinc-500">
-                        {new Date(job.createdAt).toLocaleTimeString()}
-                      </time>
-                    </div>
-                    <p className="mt-1 truncate font-mono text-xs text-zinc-500">
-                      {summarize(job.geometry)}
-                    </p>
-                    {job.status === "not-connected" && (
-                      <p className="mt-1 text-xs text-zinc-500">
-                        AI service not connected yet.
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveJob(job.id)}
-                    aria-label="Remove job"
-                    className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
-                  >
-                    <CloseIcon />
-                  </button>
-                </li>
-              );
-            })}
+            {jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                onCancel={() => onCancelJob(job.id)}
+                onRemove={() => onRemoveJob(job.id)}
+              />
+            ))}
           </ul>
         </section>
       )}
     </div>
+  );
+}
+
+function JobCard({
+  job,
+  onCancel,
+  onRemove,
+}: {
+  job: AnalysisJob;
+  onCancel: () => void;
+  onRemove: () => void;
+}) {
+  const status = statusStyles[job.status];
+  const active = isActiveStatus(job.status);
+  const cancellable = job.status === "queued" || job.status === "running";
+  const pct = Math.round(job.progress * 100);
+  const total = job.stats
+    ? Object.values(job.stats).reduce((a, b) => a + b, 0)
+    : 0;
+
+  return (
+    <li className="flex flex-col gap-2 rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800">
+      <div className="flex items-center justify-between gap-2">
+        <span className={`rounded px-1.5 py-0.5 text-xs ${status.className}`}>
+          {status.label}
+        </span>
+        <span className="flex items-center gap-1">
+          <time className="text-xs text-zinc-500">
+            {new Date(job.createdAt).toLocaleTimeString()}
+          </time>
+          {!active && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label="Remove job"
+              title="Remove job and its results from the map"
+              className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
+            >
+              <CloseIcon />
+            </button>
+          )}
+        </span>
+      </div>
+
+      <p className="truncate font-mono text-xs text-zinc-500">
+        {summarize(job.geometry)}
+      </p>
+
+      {active && (
+        <div className="flex flex-col gap-1">
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div
+              className={`h-full rounded-full bg-purple-600 transition-[width] duration-500 ${
+                job.status === "running" ? "" : "animate-pulse"
+              }`}
+              style={{ width: `${job.status === "running" ? Math.max(pct, 3) : 100}%` }}
+            />
+          </div>
+          <div className="flex justify-between gap-2 text-xs text-zinc-500">
+            <span className="truncate">{job.message}</span>
+            {job.status === "running" && <span className="tabular-nums">{pct}%</span>}
+          </div>
+        </div>
+      )}
+
+      {job.status === "done" && job.stats && (
+        <div className="text-xs">
+          <p className="font-medium">
+            {total} object{total === 1 ? "" : "s"} found
+          </p>
+          {total > 0 && (
+            <ul className="mt-1 grid grid-cols-[1fr_auto] gap-x-3 text-zinc-600 dark:text-zinc-400">
+              {Object.entries(job.stats).map(([label, n]) => (
+                <li key={label} className="contents">
+                  <span className="capitalize">{label}</span>
+                  <span className="text-right tabular-nums">{n}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {job.status === "error" && job.error && (
+        <p className="text-xs text-red-600 dark:text-red-400">{job.error}</p>
+      )}
+
+      {cancellable && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="self-start rounded-md border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        >
+          Cancel
+        </button>
+      )}
+    </li>
   );
 }
 

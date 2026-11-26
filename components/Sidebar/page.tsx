@@ -22,6 +22,7 @@ type SidebarProps = {
   onToolChange: (tool: DrawTool) => void;
   onRemoveInput: (kind: AnalysisKind) => void;
   onStart: (kind: AnalysisKind) => void;
+  onCancelJob: (id: string) => void;
   onRemoveJob: (id: string) => void;
   onClear: () => void;
 };
@@ -118,6 +119,7 @@ export default function Sidebar({
   onToolChange,
   onRemoveInput,
   onStart,
+  onCancelJob,
   onRemoveJob,
   // Used by the commented-out Clear all button below.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -225,6 +227,7 @@ export default function Sidebar({
           onCancelMark={() => onToolChange("select")}
           onRemoveInput={() => onRemoveInput(view)}
           onStart={() => onStart(view)}
+          onCancelJob={onCancelJob}
           onRemoveJob={onRemoveJob}
         />
       )}
