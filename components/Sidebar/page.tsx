@@ -7,6 +7,7 @@ import type {
   DrawTool,
   FeatureCounts,
 } from "@/components/map/drawing";
+import type { ExportFormat } from "@/lib/exports";
 import AnalysisPanel from "./AnalysisPanel";
 
 export type SidebarView = "home" | AnalysisKind;
@@ -23,6 +24,7 @@ type SidebarProps = {
   onRemoveInput: (kind: AnalysisKind) => void;
   onStart: (kind: AnalysisKind) => void;
   onCancelJob: (id: string) => void;
+  onDownloadJob: (id: string, format: ExportFormat) => void;
   onRemoveJob: (id: string) => void;
   onClear: () => void;
 };
@@ -120,6 +122,7 @@ export default function Sidebar({
   onRemoveInput,
   onStart,
   onCancelJob,
+  onDownloadJob,
   onRemoveJob,
   // Used by the commented-out Clear all button below.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -228,6 +231,7 @@ export default function Sidebar({
           onRemoveInput={() => onRemoveInput(view)}
           onStart={() => onStart(view)}
           onCancelJob={onCancelJob}
+          onDownloadJob={onDownloadJob}
           onRemoveJob={onRemoveJob}
         />
       )}

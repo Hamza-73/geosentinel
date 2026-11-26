@@ -11,6 +11,8 @@ import {
   type JobStatus,
   polygonArea,
 } from "@/components/map/drawing";
+import { prettyLabel } from "@/components/map/resultLayers";
+import type { ExportFormat } from "@/lib/exports";
 
 type AnalysisPanelProps = {
   kind: AnalysisKind;
@@ -25,6 +27,7 @@ type AnalysisPanelProps = {
   onRemoveInput: () => void;
   onStart: () => void;
   onCancelJob: (id: string) => void;
+  onDownloadJob: (id: string, format: ExportFormat) => void;
   onRemoveJob: (id: string) => void;
 };
 
@@ -120,6 +123,7 @@ export default function AnalysisPanel({
   onRemoveInput,
   onStart,
   onCancelJob,
+  onDownloadJob,
   onRemoveJob,
 }: AnalysisPanelProps) {
   const c = config[kind];
@@ -214,6 +218,7 @@ export default function AnalysisPanel({
                 key={job.id}
                 job={job}
                 onCancel={() => onCancelJob(job.id)}
+                onDownload={(format) => onDownloadJob(job.id, format)}
                 onRemove={() => onRemoveJob(job.id)}
               />
             ))}
@@ -227,10 +232,12 @@ export default function AnalysisPanel({
 function JobCard({
   job,
   onCancel,
+  onDownload,
   onRemove,
 }: {
   job: AnalysisJob;
   onCancel: () => void;
+  onDownload: (format: ExportFormat) => void;
   onRemove: () => void;
 }) {
   const status = statusStyles[job.status];
@@ -301,12 +308,28 @@ function JobCard({
             <ul className="mt-1 grid grid-cols-[1fr_auto] gap-x-3 text-zinc-600 dark:text-zinc-400">
               {Object.entries(job.stats).map(([label, n]) => (
                 <li key={label} className="contents">
-                  <span className="capitalize">{label}</span>
+                  <span>{prettyLabel(label)}</span>
                   <span className="text-right tabular-nums">{n}</span>
                 </li>
               ))}
             </ul>
           )}
+        </div>
+      )}
+
+      {job.status === "done" && job.result && (
+        <div className="flex items-center gap-1 text-xs">
+          <span className="mr-1 text-zinc-500">Download</span>
+          {(["geojson", "csv", "png"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => onDownload(f)}
+              className="rounded border border-zinc-300 px-1.5 py-0.5 uppercase hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            >
+              {f}
+            </button>
+          ))}
         </div>
       )}
 

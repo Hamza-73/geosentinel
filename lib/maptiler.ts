@@ -18,10 +18,15 @@ export const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY ?? "";
 export const SATELLITE_TILEJSON_URL = (key: string) =>
   `https://api.maptiler.com/tiles/satellite-v2/tiles.json?key=${key}`;
 
-/** Map style with only the satellite imagery: no labels or vector layers. */
+/** Font used for result labels (MapTiler font service). */
+export const LABEL_FONT = ["Noto Sans Bold"];
+
+/** Map style with only the satellite imagery: no basemap labels or vector layers. */
 export function satelliteStyle(key: string): StyleSpecification {
   return {
     version: 8,
+    // Needed for text labels on AI results (object names).
+    glyphs: `https://api.maptiler.com/fonts/{fontstack}/{range}.pbf?key=${key}`,
     sources: {
       satellite: {
         type: "raster",

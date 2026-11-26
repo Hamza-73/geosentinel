@@ -7,8 +7,16 @@ import MapView, { type MapReady } from "@/components/map/page";
 import {
   addJobResult,
   fillLayerId,
+  prettyLabel,
   removeJobResult,
+  hasJobResult,
 } from "@/components/map/resultLayers";
+import {
+  type ExportFormat,
+  exportCSV,
+  exportGeoJSON,
+  exportPNG,
+} from "@/lib/exports";
 import DrawHint from "@/components/map/DrawHint";
 import Sidebar, { type SidebarView } from "@/components/Sidebar/page";
 import {
@@ -273,7 +281,7 @@ export default function MapWorkspace() {
         popup.remove();
         return;
       }
-      const label = String(f.properties?.label ?? "object");
+      const label = prettyLabel(String(f.properties?.label ?? "object"));
       const conf = Number(f.properties?.confidence ?? 0);
       popup
         .setLngLat(e.lngLat)
@@ -297,6 +305,18 @@ export default function MapWorkspace() {
       else if (body.status) updateJob(id, { status: body.status });
     } catch {
       updateJob(id, { message: "Could not cancel (network error)." });
+    }
+  };
+
+  const handleDownloadJob = async (id: string, format: ExportFormat) => {
+    const job = jobs.find((j) => j.id === id);
+    if (!job?.result) return;
+    if (format === "geojson") exportGeoJSON(job);
+    else if (format === "csv") exportCSV(job);
+    else if (map) {
+      // Results must be on the map for the snapshot.
+      if (!hasJobResult(map, job.id)) addJobResult(map, job.id, job.kind, job.result);
+      await exportPNG(map, job);
     }
   };
 
@@ -329,6 +349,7 @@ export default function MapWorkspace() {
         onRemoveInput={handleRemoveInput}
         onStart={handleStart}
         onCancelJob={handleCancelJob}
+        onDownloadJob={handleDownloadJob}
         onRemoveJob={handleRemoveJob}
         onClear={handleClear}
       />
