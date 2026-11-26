@@ -11,6 +11,7 @@ import {
   TerraDrawSelectMode,
 } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
+import { MAPTILER_KEY, satelliteStyle } from "@/lib/maptiler";
 import { isMultiVertexTool, MIN_POINTS, placedVertices } from "./drawing";
 
 /** Colour for AI analysis inputs, so they stand apart from drawn shapes. */
@@ -60,19 +61,16 @@ export default function MapView({ onReady }: MapViewProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    if (!MAPTILER_KEY) return;
+
     const map = new Map({
       container: containerRef.current,
-      style:
-        "https://api.maptiler.com/maps/01a21800-9900-78b8-ad02-316a1ce35a88/style.json?key=sf9kXjYeubjyjzgeqgeI",
+      style: satelliteStyle(MAPTILER_KEY),
       center: [-77.028232, 38.886269],
       zoom: 19,
       // Attribution is required by MapTiler / OSM terms, so keep it but
       // collapse it to the ⓘ button (it auto-hides once the map is dragged).
       attributionControl: { compact: true },
-    });
-
-    map.on("style.load", () => {
-      map.setProjection({ type: "globe" });
     });
 
     // Top-right is used by the drawing hint.
@@ -166,6 +164,21 @@ export default function MapView({ onReady }: MapViewProps) {
       map.remove();
     };
   }, []);
+
+  if (!MAPTILER_KEY) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-zinc-100 p-6 text-center text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+        <p>
+          MapTiler API key missing. Add{" "}
+          <code className="rounded bg-zinc-200 px-1 dark:bg-zinc-800">
+            NEXT_PUBLIC_MAPTILER_KEY
+          </code>{" "}
+          to <code className="rounded bg-zinc-200 px-1 dark:bg-zinc-800">.env.local</code>{" "}
+          and restart the dev server.
+        </p>
+      </div>
+    );
+  }
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
