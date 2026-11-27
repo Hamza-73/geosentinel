@@ -30,8 +30,12 @@ class Settings:
     tile_workers: int = field(default_factory=lambda: _int("TILE_WORKERS", 8))
     # Optional on-disk tile cache (useful locally; empty = disabled).
     tile_cache_dir: str = field(default_factory=lambda: os.environ.get("TILE_CACHE_DIR", ""))
-    # Hard cap on tiles per job, independent of the API's area limit.
-    max_tiles: int = field(default_factory=lambda: _int("MAX_TILES", 400))
+    # Rings of neighbouring tiles added around the area's tiles before
+    # stitching (1 = the full surrounding ring), for edge objects + context.
+    context_tiles: int = field(default_factory=lambda: _int("CONTEXT_TILES", 1))
+    # Hard cap on tiles per job (including the context ring), independent of
+    # the API's area limit.
+    max_tiles: int = field(default_factory=lambda: _int("MAX_TILES", 450))
 
     # Zoom levels per task (512 px tiles → ~23 cm/px at z18, ~12 cm/px at
     # z19 around 39° latitude).
@@ -47,9 +51,16 @@ class Settings:
     )
     conf_threshold: float = field(default_factory=lambda: _float("YOLO_CONF", 0.25))
 
-    # SAHI sliced inference.
-    slice_size: int = field(default_factory=lambda: _int("SAHI_SLICE_SIZE", 640))
+    # SAHI sliced inference. The DOTA OBB models are trained on 1024 px
+    # images, so slices and model input match that. With 20% overlap, any
+    # object up to ~205 px (~26 m at z19) lands whole in at least one slice.
+    slice_size: int = field(default_factory=lambda: _int("SAHI_SLICE_SIZE", 1024))
     slice_overlap: float = field(default_factory=lambda: _float("SAHI_OVERLAP", 0.2))
+    model_imgsz: int = field(default_factory=lambda: _int("MODEL_IMGSZ", 1024))
+    # Second, zoomed-out detection pass for large object classes (planes,
+    # ships, storage tanks, sports fields…) that don't fit in one full-res
+    # slice. 0.25 → objects up to ~100 m are seen whole. 0 disables it.
+    coarse_scale: float = field(default_factory=lambda: _float("COARSE_SCALE", 0.25))
 
     # Database (Neon, pooled URL is fine for short UPDATEs).
     database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", ""))

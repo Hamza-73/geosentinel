@@ -18,7 +18,7 @@ from shapely.ops import unary_union
 
 import infer
 from config import Settings, settings as default_settings
-from geo import polygon_from_geojson
+from geo import meters_per_pixel, polygon_from_geojson
 from tiles import Mosaic, build_mosaic
 
 Kind = Literal["detect", "segment"]
@@ -90,7 +90,16 @@ def run_analysis(
         frac = TILES_END + (INFER_END - TILES_END) * done / max(total, 1)
         report(frac, f"{verb} (slice {done}/{total})")
 
-    detections = infer.predict(mosaic.image, model_path, cfg=cfg, on_progress=on_slices)
+    detections = infer.predict(
+        mosaic.image,
+        model_path,
+        cfg=cfg,
+        # Real-world size check + zoomed-out pass for large objects (planes,
+        # ships…); OBB detection only, the seg model uses COCO classes.
+        metres_per_px=meters_per_pixel(area.centroid.y, zoom, cfg.tile_size),
+        multiscale=kind == "detect",
+        on_progress=on_slices,
+    )
 
     # 3. Pixels → lng/lat, keep what's inside the user's polygon
     report(INFER_END, "Preparing results")

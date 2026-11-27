@@ -105,14 +105,14 @@ def build_mosaic(
     polygon: Polygon,
     zoom: int,
     *,
-    margin_px: int = 128,
     cfg: Settings = default_settings,
     client: TileClient | None = None,
     on_progress: ProgressFn | None = None,
 ) -> Mosaic:
-    """Download every tile under the polygon's bbox (+margin) and stitch."""
+    """Download the tiles under the polygon's bbox plus the surrounding ring(s)
+    of neighbour tiles (cfg.context_tiles), each once, and stitch them."""
     size = cfg.tile_size
-    rng = tile_range_for_polygon(polygon, zoom, size, margin_px)
+    rng = tile_range_for_polygon(polygon, zoom, size, cfg.context_tiles)
     if rng.count > cfg.max_tiles:
         raise TileError(
             f"Area needs {rng.count} tiles at z{zoom} (max {cfg.max_tiles}). Draw a smaller area."

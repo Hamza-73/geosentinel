@@ -71,10 +71,11 @@ def polygon_from_geojson(geometry: dict) -> Polygon:
 
 
 def tile_range_for_polygon(
-    poly: Polygon, zoom: int, tile_size: int, margin_px: int
+    poly: Polygon, zoom: int, tile_size: int, context_tiles: int = 1
 ) -> TileRange:
-    """Tiles covering the polygon's bounding box plus a pixel margin, so
-    objects on the polygon edge are seen whole."""
+    """Tiles covering the polygon's bounding box, plus `context_tiles` rings
+    of neighbouring tiles all around, so objects on the edge of the drawn
+    area are seen whole and the model has surrounding context."""
     west, south, east, north = poly.bounds
     x0, y0 = lnglat_to_pixel(west, north, zoom, tile_size)
     x1, y1 = lnglat_to_pixel(east, south, zoom, tile_size)
@@ -82,8 +83,8 @@ def tile_range_for_polygon(
     clamp = lambda v: max(0, min(n - 1, v))  # noqa: E731
     return TileRange(
         zoom=zoom,
-        min_x=clamp(int((x0 - margin_px) // tile_size)),
-        min_y=clamp(int((y0 - margin_px) // tile_size)),
-        max_x=clamp(int((x1 + margin_px) // tile_size)),
-        max_y=clamp(int((y1 + margin_px) // tile_size)),
+        min_x=clamp(int(x0 // tile_size) - context_tiles),
+        min_y=clamp(int(y0 // tile_size) - context_tiles),
+        max_x=clamp(int(x1 // tile_size) + context_tiles),
+        max_y=clamp(int(y1 // tile_size) + context_tiles),
     )
