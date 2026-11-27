@@ -32,7 +32,7 @@ const hints: Record<Exclude<DrawTool, "select">, { title: string; body: string }
   },
   segment: {
     title: "Segmentation",
-    body: `Draw an area around the object to outline, at least ${MIN_POINTS.segment} points.`,
+    body: `Draw closely around one object to outline it, at least ${MIN_POINTS.segment} points.`,
   },
   detect: {
     title: "Object detection",

@@ -54,10 +54,10 @@ const config: Record<
   },
   segment: {
     title: "Segmentation",
-    intro: "Mark an area around an object, then run segmentation to outline it.",
+    intro: "Draw closely around one object (a building, plane, field…), then run segmentation to trace its outline.",
     mark: "Mark area",
     remark: "Redraw area",
-    markingHint: "Click around the object to add points. Right-click to finish.",
+    markingHint: "Click around the object, keeping close to its edges. Right-click to finish.",
     empty: "No area marked yet.",
     start: "Start segmentation",
   },

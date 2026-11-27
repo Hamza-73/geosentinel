@@ -42,13 +42,18 @@ class Settings:
     detect_zoom: int = field(default_factory=lambda: _int("DETECT_ZOOM", 19))
     segment_zoom: int = field(default_factory=lambda: _int("SEGMENT_ZOOM", 19))
 
-    # Models (YOLO for both tasks).
+    # Models.
     detect_model: str = field(
         default_factory=lambda: os.environ.get("DETECT_MODEL_PATH", "models/yolo26s-obb.pt")
     )
-    segment_model: str = field(
-        default_factory=lambda: os.environ.get("SEGMENT_MODEL_PATH", "models/yolo26s-seg.pt")
+    # Segmentation = the detector above finds + names objects, then SAM 2.1
+    # outlines each one (box prompts).
+    sam_model: str = field(
+        default_factory=lambda: os.environ.get("SAM_MODEL_PATH", "models/sam2.1_s.pt")
     )
+    # SAM runs on windows of this size (px; SAM 2.1's input is 1024) so small
+    # objects keep their detail.
+    sam_window: int = field(default_factory=lambda: _int("SAM_WINDOW", 1024))
     conf_threshold: float = field(default_factory=lambda: _float("YOLO_CONF", 0.25))
 
     # SAHI sliced inference. The DOTA OBB models are trained on 1024 px

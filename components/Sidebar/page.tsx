@@ -88,7 +88,7 @@ const aiTools: (ToolButton & { tool: AnalysisKind })[] = [
   {
     tool: "segment",
     label: "Segmentation",
-    description: "Outline an object inside an area",
+    description: "Outline one object you draw around",
     icon: (
       <g fill="none" stroke="currentColor" strokeWidth="2">
         <path
