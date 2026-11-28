@@ -42,7 +42,7 @@ def claim_next(conn: psycopg.Connection) -> Job | None:
     row = conn.execute(
         """
         update jobs
-           set status = 'running', progress = 0, message = 'Starting',
+           set status = 'running', progress = 0,
                started_at = now(), updated_at = now()
          where id = (
                select id from jobs
@@ -68,18 +68,18 @@ class ProgressWriter:
         self.min_interval_s = min_interval_s
         self._last = 0.0
 
-    def __call__(self, frac: float, message: str) -> None:
+    def __call__(self, frac: float) -> None:
         now = time.monotonic()
         if now - self._last < self.min_interval_s and frac < 1.0:
             return
         self._last = now
         row = self.conn.execute(
             """
-            update jobs set progress = %s, message = %s, updated_at = now()
+            update jobs set progress = %s, updated_at = now()
              where id = %s and status = 'running'
             returning id
             """,
-            (min(max(frac, 0.0), 1.0), message, self.job_id),
+            (min(max(frac, 0.0), 1.0), self.job_id),
         ).fetchone()
         if row is None:
             raise JobCancelled(self.job_id)

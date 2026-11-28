@@ -46,6 +46,8 @@ export type AnalysisJob = {
   kind: AnalysisKind;
   /** Snapshot of the input at the moment the job was started. */
   geometry: Point | Polygon;
+  /** Terra Draw feature the job was started from (removed once it's done). */
+  featureId?: string | number;
   status: JobStatus;
   /** 0..1 */
   progress: number;

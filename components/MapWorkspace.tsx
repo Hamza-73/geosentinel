@@ -17,7 +17,7 @@ import {
   exportGeoJSON,
   exportPNG,
 } from "@/lib/exports";
-import DrawHint from "@/components/map/DrawHint";
+// import DrawHint from "@/components/map/DrawHint";
 import Sidebar, { type SidebarView } from "@/components/Sidebar/page";
 import {
   type AnalysisInput,
@@ -173,6 +173,7 @@ export default function MapWorkspace() {
         id: tempId,
         kind,
         geometry: input.geometry,
+        featureId: input.featureId,
         status: "starting",
         progress: 0,
         message: "Submitting…",
@@ -262,6 +263,27 @@ export default function MapWorkspace() {
     }
     drawnResults.current = wanted;
   }, [map, jobs]);
+
+  // Once a job succeeds, remove the area it was drawn from (its results
+  // replace it). Only that exact feature: a newer area drawn meanwhile stays.
+  const clearedJobs = useRef(new Set<string>());
+  useEffect(() => {
+    if (!draw) return;
+    for (const job of jobs) {
+      if (job.status !== "done" || job.featureId == null) continue;
+      if (clearedJobs.current.has(job.id)) continue;
+      clearedJobs.current.add(job.id);
+
+      const { kind, featureId } = job;
+      if (draw.getSnapshotFeature(featureId)) draw.removeFeatures([featureId]);
+      setInputs((prev) => {
+        if (prev[kind]?.featureId !== featureId) return prev;
+        const next = { ...prev };
+        delete next[kind];
+        return next;
+      });
+    }
+  }, [draw, jobs]);
 
   // Click a result to see its label and confidence.
   const resultLayerKey = jobs
@@ -355,7 +377,7 @@ export default function MapWorkspace() {
       />
       <main className="relative flex-1">
         <MapView onReady={setReady} />
-        {ready && <DrawHint map={ready.map} draw={ready.draw} tool={tool} />}
+        {/* {ready && <DrawHint map={ready.map} draw={ready.draw} tool={tool} />} */}
       </main>
     </div>
   );

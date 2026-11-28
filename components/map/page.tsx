@@ -66,11 +66,10 @@ export default function MapView({ onReady }: MapViewProps) {
     const map = new Map({
       container: containerRef.current,
       style: satelliteStyle(MAPTILER_KEY),
-      center: [-77.028232, 38.886269],
+      center: [-76.9790819, 38.8969434],
       zoom: 19,
-      // Attribution is required by MapTiler / OSM terms, so keep it but
-      // collapse it to the ⓘ button (it auto-hides once the map is dragged).
-      attributionControl: { compact: true },
+      // No on-map attribution (the PNG export still credits MapTiler / OSM).
+      attributionControl: false,
     });
 
     // Top-right is used by the drawing hint.

@@ -43,10 +43,10 @@ def main() -> None:
 
     last = [-1.0]
 
-    def report(frac: float, msg: str) -> None:
+    def report(frac: float) -> None:
         if frac - last[0] >= 0.1 or frac >= 1.0:
             last[0] = frac
-            print(f"  {frac * 100:5.1f}%  {msg}")
+            print(f"  {frac * 100:5.1f}%")
 
     print(f"device: {device()}")
     t0 = time.time()

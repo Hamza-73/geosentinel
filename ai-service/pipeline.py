@@ -32,8 +32,8 @@ from tiles import Mosaic, build_mosaic
 
 Kind = Literal["detect", "segment"]
 
-# (fraction 0..1, message)
-ReportFn = Callable[[float, str], None]
+# Progress fraction 0..1.
+ReportFn = Callable[[float], None]
 
 # Simplify outlines (tolerance in mosaic pixels) and drop slivers.
 SIMPLIFY_PX = 1.0
@@ -89,7 +89,7 @@ def run_analysis(
     cfg: Settings = default_settings,
     report: ReportFn | None = None,
 ) -> AnalysisResult:
-    report = report or (lambda _p, _m: None)
+    report = report or (lambda _p: None)
     area = polygon_from_geojson(polygon_geojson)
     zoom = cfg.detect_zoom if kind == "detect" else cfg.segment_zoom
 
@@ -98,10 +98,10 @@ def run_analysis(
     detect_end = 0.9
 
     # 1. Imagery: area tiles + neighbour ring, stitched.
-    report(0.0, "Downloading imagery")
+    report(0.0)
 
     def on_tiles(done: int, total: int) -> None:
-        report(tiles_end * done / total, f"Downloading imagery ({done}/{total} tiles)")
+        report(tiles_end * done / total)
 
     mosaic = build_mosaic(area, zoom, cfg=cfg, on_progress=on_tiles)
     area_px = Polygon([mosaic.to_pixel(lng, lat) for lng, lat in area.exterior.coords])
@@ -111,11 +111,11 @@ def run_analysis(
         return _finish(objects, mosaic, report, detections=len(objects))
 
     # 2. Find and name objects.
-    report(tiles_end, "Detecting objects")
+    report(tiles_end)
 
     def on_slices(done: int, total: int) -> None:
         frac = tiles_end + (detect_end - tiles_end) * done / max(total, 1)
-        report(frac, f"Detecting objects (slice {done}/{total})")
+        report(frac)
 
     detections = infer.predict(
         mosaic.image,
@@ -147,10 +147,10 @@ def _segment_area(
     """Segmentation, as in the old ai-segmenter's bbox mode: the drawn area's
     bounding box is one SAM prompt, and SAM outlines the object inside it.
     No detector, no class names."""
-    report(start, "Outlining object")
+    report(start)
 
     def on_windows(done: int, total: int) -> None:
-        report(start + (0.95 - start) * done / max(total, 1), "Outlining object")
+        report(start + (0.95 - start) * done / max(total, 1))
 
     x0, y0, x1, y1 = area_px.bounds
     prompt = (x0, y0, x1, y1)
@@ -171,7 +171,7 @@ def _finish(
     detections: int,
 ) -> AnalysisResult:
     """Pixels → lng/lat GeoJSON + per-label counts."""
-    report(0.95, "Preparing results")
+    report(0.95)
     features = []
     counts: Counter[str] = Counter()
     for label, conf, geom_px in objects:
@@ -187,7 +187,7 @@ def _finish(
             }
         )
 
-    report(1.0, f"Done: {len(features)} object(s)")
+    report(1.0)
     return AnalysisResult(
         geojson={"type": "FeatureCollection", "features": features},
         stats=dict(counts.most_common()),
